@@ -1,0 +1,39 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.ssh.insert_key = false
+
+  $puppet = <<PUPPET
+  sudo apt-get update
+  sudo wget https://apt.puppet.com/puppet7-release-bullseye.deb -O repository.deb
+  sudo dpkg -i repository.deb
+  sudo apt-get install -y puppet
+PUPPET
+
+  $modules = <<MODULES
+  sudo -u vagrant puppet module install puppetlabs/docker
+  sudo cp -vR ~/.puppet/etc/code/modules /etc/puppet/code/
+MODULES
+
+  # nginx - Debian 11
+  config.vm.define "nginx" do |nginx|
+    nginx.vm.box = "shekeriev/debian-11"
+    nginx.vm.hostname = "nginx"
+    nginx.vm.network "private_network", ip: "192.168.89.150"
+    nginx.vm.provision "shell", inline: $puppet, privileged: false
+    nginx.vm.provision "shell", inline: $modules, privileged: false
+    nginx.vm.provision "puppet" do |puppet|
+      puppet.manifests_path = "manifests"
+      puppet.manifest_file = "nginx.pp"
+      puppet.options = "--verbose --debug"
+    end
+
+    nginx.vm.provider "virtualbox" do |v|
+      v.gui = false
+      v.memory = 2048
+      v.cpus = 2
+    end
+  end
+  
+end
